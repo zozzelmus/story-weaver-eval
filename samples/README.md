@@ -1,8 +1,8 @@
 # samples/ — VIBES inbound case fixture
 
 `0002-vibes-case.kafka.json` is a representative record as it would arrive on the VIBES topic,
-for feature `0002`. It exists so the feature is concrete — the ticket generators (and, later, a
-real implementation) have an actual payload shape to reason about.
+for feature `0002`. It exists so the feature is concrete — the agent (and, later, a real
+implementation) has an actual payload shape to reason about.
 
 **All values are synthetic.** Canonical test PAN (`4111111111111111`), placeholder SSN
 (`123-45-6789`), reserved fictional phone range (`555-01xx`), and `example.com`. Safe to commit.
@@ -40,10 +40,10 @@ The requirement says mask both *flagged fields* and *free text* — this record 
 - **Attachments.** `attachments[].containsSensitiveData == true` — the PDF excerpt is flagged
   sensitive, but this flow as described only masks the case record's fields/text. Whether
   attachments are in scope, stripped, or separately handled is unspecified on purpose; it's
-  the kind of gap V3's critic should flag against the "nothing sensitive crosses un-sanitized"
-  guarantee.
+  the kind of gap `draft-tickets`' INVEST + AC self-check should flag against the "nothing
+  sensitive crosses un-sanitized" guarantee.
 - **`subjectEmployee`** is internal employee data, not customer PCI/PII. Decide whether it
   egresses as-is (investigators likely need it) — it's a scope call, not an automatic mask.
 
-These ambiguities are intentional. They're exactly the places where a single-shot generator
-quietly assumes the happy path and a reasoning pipeline asks the question.
+These ambiguities are intentional. They're exactly the places where a naive "feature in,
+tickets out" tool quietly assumes the happy path and a grounded agent asks the question.

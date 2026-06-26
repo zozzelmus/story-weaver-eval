@@ -1,8 +1,8 @@
 # EXEMPLAR — Bulk case reassignment (grounding corpus)
 
-> A well-written past ticket used as a GROUNDING exemplar. Different feature from anything in
-> `reference-tickets/`. Teaches the project's background-job + notification conventions, which
-> are useful context for any feature with long-running work.
+> A well-written past ticket used as a GROUNDING exemplar (fallback when no Jira MCP is
+> connected). Teaches the project's background-job + notification conventions, which are useful
+> context for any feature with long-running work.
 
 ## Story: Reassign a batch of cases to a new owner with audit and notify
 **Epic Link:** Case workload management

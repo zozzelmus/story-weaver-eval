@@ -1,8 +1,7 @@
 # EXEMPLAR — Saved search filters (grounding corpus)
 
-> A well-written past ticket used as a GROUNDING exemplar. It teaches the model how this
-> project writes summaries, AC, components, and labels. It is intentionally a DIFFERENT
-> feature from anything in `reference-tickets/` — keep it that way (leakage rule).
+> A well-written past ticket used as a GROUNDING exemplar (fallback when no Jira MCP is
+> connected). It teaches the agent how this project writes summaries, AC, components, and labels.
 
 ## Story: Let analysts save and reuse Case Explorer search filters
 **Epic Link:** Case Explorer search

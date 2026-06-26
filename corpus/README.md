@@ -1,11 +1,14 @@
-# corpus/ — grounding exemplars
+# corpus/ — optional offline exemplars
 
-Well-written past tickets used as few-shot exemplars by V1+ (when no Jira MCP is connected,
-this is the whole grounding pool; when one is connected, it's a supplementary seed).
+Well-written past tickets used as **fallback grounding** when no Jira MCP is connected. When a
+Jira MCP *is* connected, `learn-team` learns conventions directly from the live project and
+these are just a supplementary seed.
 
-These teach the model your project's conventions: summary phrasing, AC style, components, labels.
+They teach the agent your project's conventions: summary phrasing, AC style, components, labels.
 
-⚠️ **Leakage rule:** every file here must be a DIFFERENT ticket from anything in
-`reference-tickets/`. Never put a held-out answer in the grounding pool.
+> No leakage rule anymore — there's no held-out answer key in this repo (it's a ticket-drafting
+> agent, not an eval harness). Drop in any good real tickets you'd like the agent to imitate.
+> The richer the live Jira scan or this corpus, the more your drafts sound like your team.
 
-Two example exemplars ship here — add more of your own good tickets.
+A couple of example exemplars ship here — add more of your own good tickets, or rely on the live
+Jira scan via `learn-team`.
