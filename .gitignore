@@ -1,0 +1,8 @@
+# run outputs
+results/*.md
+results/*.json
+!results/README.md
+
+# python
+__pycache__/
+*.pyc

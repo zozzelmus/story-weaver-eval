@@ -1,0 +1,69 @@
+{
+  "topic": "vibes.conduct.cases.v1",
+  "partition": 3,
+  "offset": 184257,
+  "key": "VIBES-CASE-0098213",
+  "headers": {
+    "schemaVersion": "1.4.0",
+    "eventType": "ConductCaseRaised",
+    "eventId": "0c4b8f2a-9d31-4e77-b1a6-5f2c7e9d0042",
+    "source": "VIBES",
+    "correlationId": "corr-7f3a1c9e-2026-0624",
+    "producedAt": "2026-06-24T18:42:11Z",
+    "contentType": "application/json"
+  },
+  "value": {
+    "caseId": "VIBES-CASE-0098213",
+    "externalCaseRef": "VB-2026-0098213",
+    "caseType": "SALES_PRACTICE_COMPLAINT",
+    "intakeChannel": "BRANCH_REFERRAL",
+    "priority": "HIGH",
+    "status": "RAISED",
+    "openedAt": "2026-06-24T18:41:55Z",
+    "ecn": "ECN-4477120932",
+    "subjectEmployee": {
+      "employeeId": "E0231144",
+      "name": "Jordan Avery",
+      "role": "Financial Advisor",
+      "businessUnit": "Consumer Wealth - Southeast"
+    },
+    "reporter": {
+      "type": "CUSTOMER",
+      "name": "Pat Morales",
+      "contactPhone": "+1-555-0142",
+      "contactEmail": "pat.morales@example.com"
+    },
+    "customer": {
+      "name": "Pat Morales",
+      "dateOfBirth": "1979-03-12",
+      "ssn": "123-45-6789",
+      "cardNumber": "4111111111111111",
+      "cardExpiry": "08/28",
+      "accountNumber": "000123456789",
+      "mailingAddress": "42 Beechwood Ln, Charlotte, NC 28202"
+    },
+    "complaint": {
+      "summary": "Customer alleges advisor opened a credit card without consent.",
+      "detailedNarrative": "Customer Pat Morales (DOB 03/12/1979, SSN 123-45-6789) states that during a branch visit on 2026-06-19, advisor Jordan Avery opened a new credit card without authorization. Customer noticed a $95 annual fee and called to dispute. To verify identity over the phone the customer read out card number 4111 1111 1111 1111 (exp 08/28) and SSN 123-45-6789. Customer is reachable at 555-0142 or pat.morales@example.com and wants a callback.",
+      "desiredOutcome": "Reversal of the annual fee and closure of the unauthorized account."
+    },
+    "dataFlags": [
+      { "fieldPath": "customer.ssn", "classification": "PII", "subtype": "SSN", "status": "CONFIRMED" },
+      { "fieldPath": "customer.cardNumber", "classification": "PCI", "subtype": "PAN", "status": "CONFIRMED" },
+      { "fieldPath": "customer.cardExpiry", "classification": "PCI", "subtype": "CARD_EXPIRY", "status": "CONFIRMED" },
+      { "fieldPath": "customer.accountNumber", "classification": "PII", "subtype": "FINANCIAL_ACCOUNT", "status": "CONFIRMED" },
+      { "fieldPath": "customer.dateOfBirth", "classification": "PII", "subtype": "DOB", "status": "CONFIRMED" },
+      { "fieldPath": "complaint.detailedNarrative", "classification": "MIXED", "subtype": "FREE_TEXT", "status": "REQUIRES_DETECTION" },
+      { "fieldPath": "complaint.summary", "classification": "MIXED", "subtype": "FREE_TEXT", "status": "REQUIRES_DETECTION" }
+    ],
+    "attachments": [
+      {
+        "attachmentId": "ATT-55021",
+        "filename": "statement_excerpt.pdf",
+        "contentType": "application/pdf",
+        "sizeBytes": 184320,
+        "containsSensitiveData": true
+      }
+    ]
+  }
+}
