@@ -1,8 +1,8 @@
-# run outputs
-results/*.md
-results/*.json
-!results/README.md
+# The live profile is created by /learn-team. Keep the template tracked; the filled-in
+# profile is yours to commit or ignore. Commit it if you want the learned conventions
+# versioned and reviewable (recommended). To keep it local instead, uncomment:
+# profile/team-profile.md
 
-# python
-__pycache__/
-*.pyc
+# OS / editor noise
+.DS_Store
+*.swp

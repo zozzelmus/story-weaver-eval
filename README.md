@@ -1,159 +1,142 @@
-# Story Weaver Eval
+# Self-Learning Ticket Agent
 
-A no-API-key, runs-entirely-inside-Copilot harness for testing one question:
+A no-API-key, runs-entirely-inside-Copilot agent that **learns how your team writes tickets**,
+then breaks a feature down into draft tickets that look like your team wrote them — for you to
+review and approve before anything is pushed to Jira.
 
-> **Does grounding + decomposition + critique actually produce better Jira tickets than a single LLM call?**
+> **learn → gather → draft → [you review] → publish**
 
-It does this as an **ablation study** — four generator variants (V0→V3), each adding exactly
-one capability, scored by an INVEST judge against tickets your team already wrote by hand.
-
-There is no scripted model call anywhere. Generation and judging both run through **Copilot
-agent mode**, so your Copilot subscription is the only model access required. The only Python
-in here (`scripts/aggregate.py`) just tallies JSON result files — it never calls a model.
+There is no model key and no separate runtime. Learning, drafting, and (gated) publishing all
+run through **Copilot agent mode** with Markdown *skills*, so your Copilot subscription is the
+only model access required. The agent reaches Jira, Confluence, and your source through tools
+(MCP + the repo) — it never calls a model itself.
 
 ---
 
-## The variant ladder
+## What it does
 
-| Variant | Skill                  | Adds                                              |
-|---------|------------------------|---------------------------------------------------|
-| **V0**  | `gen-v0-singleshot`    | nothing — "here's the feature, write tickets". This *is* current Story Weaver. The baseline. |
-| **V1**  | `gen-v1-grounded`      | retrieval: pulls similar real tickets/epics (Jira MCP, or the `corpus/` folder as fallback) and uses them as exemplars |
-| **V2**  | `gen-v2-decomposed`    | an explicit, inspectable epic→story tree before drafting |
-| **V3**  | `gen-v3-critic`        | a generate→critique(INVEST + Jira dedup)→revise loop |
+| Step | Skill | What happens |
+|------|-------|--------------|
+| **Learn** | `learn-team` | Deep self-learning: read the team's **working agreement** (a Confluence page), scan the **whole Jira project** (epics, stories, components, labels, estimation, glossary), and study **one existing feature's** decomposition. Persist it all to `profile/team-profile.md`. |
+| **Gather** | `gather-context` | Read the target **feature from Jira** (description, AC, comments, links, attachments) and the relevant **source code**, into a context brief. |
+| **Draft** | `draft-tickets` | Decompose the feature into vertical slices and draft tickets **in the team's voice**, one Markdown file per ticket in `tickets-review/<FEATURE>/`. A light INVEST self-check + read-only backlog dedup. Nothing is in Jira yet. |
+| **Publish** | `publish-to-jira` | **The single gated write path.** After you review and approve the files, create the tickets in Jira **attached to the feature**, reusing components/labels/estimates. Idempotent. |
 
-The hypothesis is that **V0→V1 is the single biggest jump** — that most of "Story Weaver
-output doesn't look like ours" is a *grounding* problem, not an agentic-reasoning problem.
-If V1 alone closes most of the gap, that's a genuinely useful negative result: maybe the
-rebuild just needs real RAG, not a full pipeline. A cheap finding that saves a quarter of
-build is a win.
+The `ticket-agent` orchestrator **chains these skills like tools** and stops at the review gate.
+
+---
+
+## Why Copilot (and not the Claude Agent SDK)
+
+The SDK would give you enforced write-gating, subagents-as-tools, and a place to persist
+learning — but it needs Anthropic **API access** (a key, or Amazon Bedrock / Google Vertex /
+Azure). With no token, the SDK can't run, so we stay in **Copilot agent mode** and emulate the
+two things that matter:
+
+- **The write-gate is procedural.** Only `publish-to-jira` writes, and only after you explicitly
+  approve the reviewed files. Everything else is read-only by construction.
+- **Learning is persisted to a file.** `profile/team-profile.md` *is* the memory — committed,
+  human-readable, and editable.
+
+The skill *content* is model-agnostic. If you later get Bedrock/Vertex access, the same skills
+drop onto a thin Agent SDK harness with a real enforced gate — this isn't a dead end.
 
 ---
 
 ## Prerequisites
 
-- **VS Code 1.120+** with GitHub Copilot, **agent mode** enabled (`chat.agent.enabled`).
-- Skills support (1.120 stable). This repo's skills live in `.github/skills/`; Copilot
-  also auto-discovers `.claude/skills/` if you'd rather symlink them there.
-- **A Jira MCP server connected to Copilot** (for V1 grounding and V3 dedup). This is
-  bring-your-own-*tool*, not bring-your-own-model-key — usually a much lighter approval.
-  V1/V3 fall back to the `corpus/` files if no Jira MCP is present, so you can still run
-  the whole ladder without it (just with weaker grounding).
-- **Two models available in the Copilot model picker.** You generate with one and judge
-  with another — see "The self-bias problem" below. If you only have one, the experiment
-  still runs but the judge numbers are softer.
+- **VS Code 1.120+** with GitHub Copilot, **agent mode** enabled (`chat.agent.enabled`), and
+  Skills support (1.120 stable). Skills live in `.github/skills/`; Copilot also auto-discovers
+  `.claude/skills/` if you prefer to symlink them.
+- **A Jira MCP server connected to Copilot** — used read-only for learning, gathering, and
+  dedup, and read-write only by `publish-to-jira` behind the gate. Without it, the agent falls
+  back to local files (`corpus/`, `features/`) and can't publish.
+- **A Confluence MCP (or any "fetch this page" tool)** for `learn-team` to read the working
+  agreement. Optional — you can also paste the agreement into the profile by hand.
 
-> The skills reference Jira MCP capabilities generically (e.g. "search issues by JQL",
-> "read an epic's children"). Different Jira MCP servers name their tools differently.
-> If your agent can't bind a capability, open the relevant `SKILL.md` and replace the
-> capability description with your server's actual tool name. This is the one place you'll
-> likely need to adjust for your environment.
+> The skills reference MCP capabilities generically (e.g. "search Jira issues by JQL", "create a
+> Jira issue", "fetch a Confluence page"). Different MCP servers name their tools differently. If
+> a capability won't bind, open the relevant `SKILL.md` and swap in your server's actual tool
+> name — that's the one place you'll likely adjust for your environment.
 
 ---
 
-## How to run it (≈ tomorrow morning)
+## How to run it
 
 1. **Clone and open** the folder in VS Code. Open the Chat view, select **Agent**.
 
-2. **Populate the test set.** Each test case is a pair:
-   - `features/<CASE-ID>.md` — the raw requirement (what goes *into* the tool)
-   - `reference-tickets/<CASE-ID>.md` — the tickets your team actually wrote (the ground truth the judge compares against)
-
-   One worked pair (`EXAMPLE-0001-bulk-export`) ships in the repo so you can see the format
-   and do a smoke-test immediately. Aim for **~15 pairs** for a directional read.
-
-3. **Populate the grounding corpus.** Drop *well-written past tickets* into `corpus/`.
-   **These must be DIFFERENT tickets from `reference-tickets/`** — see the leakage rule below.
-   Two example exemplars ship in the repo. If you're grounding against live Jira via MCP,
-   the corpus is a supplementary seed; if not, it's the whole grounding pool.
-
-4. **Run a variant for a case.** In agent chat:
+2. **Teach it your team (once).** This is the deep self-learning step — give it your working
+   agreement and project key:
    ```
-   /gen-v0-singleshot  using features/EXAMPLE-0001-bulk-export.md, write the result to results/EXAMPLE-0001-bulk-export.v0.tickets.md
+   /learn-team confluence=https://your.wiki/working-agreement project=TM exemplar=TM-77
    ```
-   Then the same for `/gen-v1-grounded`, `/gen-v2-decomposed`, `/gen-v3-critic`.
-   (Or use the orchestrator agent — see below — to run all four for a case in one go.)
+   It writes `profile/team-profile.md`. **Read it** — correct anything it got wrong; it's the
+   memory every draft is built from. Re-run it when the team changes how it works, not every time.
 
-5. **Switch the model**, then judge. Change the model in the picker to your *judge* model, then:
+3. **Break down a feature.** Point the orchestrator at a Jira feature:
    ```
-   /invest-judge  compare results/EXAMPLE-0001-bulk-export.v1.tickets.md against reference-tickets/EXAMPLE-0001-bulk-export.md, write scores to results/EXAMPLE-0001-bulk-export.v1.json
+   Use ticket-agent to break down TM-128. Code is in src/transport/**.
    ```
-   The judge runs in a **forked context** (set in its frontmatter) so the generation
-   reasoning doesn't leak into the scoring.
+   It gathers the feature + code, then drafts to `tickets-review/TM-128/` — one file per ticket,
+   plus `INDEX.md` with the decomposition tree, critique log, and an approval checklist.
 
-6. **Tally.** When you've got JSON results in `results/`:
-   ```
-   python scripts/aggregate.py
-   ```
-   It prints mean case score per variant, mean per-INVEST-dimension, and the
-   reference-comparison win rate per variant. Stdlib only — no pip, no key.
+4. **Review the gate.** Open `tickets-review/TM-128/`. Edit the files freely — they are the
+   source of truth. Nothing is in Jira yet.
 
-### Or let the orchestrator drive it
+5. **Publish when happy.**
+   ```
+   publish TM-128
+   ```
+   `publish-to-jira` restates exactly what it will create, waits for your go, then creates the
+   tickets under the feature and writes the new Jira keys back into the files.
 
-`.github/agents/ticket-eval.agent.md` is an agent that, given a case ID, runs all four
-generators and then judges each — pausing for you to switch the model before the judging
-phase. Use it once you've smoke-tested the skills individually and trust them.
+You can also run the skills individually (`/gather-context`, `/draft-tickets`, …) instead of the
+orchestrator.
 
 ---
 
-## ⚠️ The leakage rule (read this or your numbers lie)
+## The review gate (the one rule that matters)
 
-A ticket used as a **grounding exemplar** (`corpus/`) must **never** also be a **held-out
-reference** (`reference-tickets/`). If the model is shown the answer as an exemplar, V1+ will
-look brilliant for the wrong reason and your whole conclusion is invalid. Keep the two folders
-strictly disjoint. The folder split is the mechanism that enforces this — don't defeat it.
-
----
-
-## The self-bias problem (the one real wound of running this in Copilot)
-
-Generator and judge would normally be the same underlying model, and a model tends to like
-its own output. Three mitigations, in order of strength:
-
-1. **Generate with one model, judge with another.** 1.120's model picker makes this a two-click
-   switch. This is the strongest fix and costs nothing — do it.
-2. **Judge reference-based, not reference-free.** The judge always sees the human ticket as the
-   anchor and answers "which is better"; anchoring to ground truth is far harder to game than a
-   bare 1–5.
-3. **Calibrate the judge yourself.** Before trusting any number, hand-score 3–4 tickets and
-   confirm the judge agrees with you. A miscalibrated judge makes the whole run worthless.
-
-## Other honest caveats
-
-- **Small n.** ~15 cases is *directional*, not gospel. Run each case twice and treat the
-  spread as the error bar. Don't present a 0.2-point gap as a finding.
-- **Reproducibility.** Chat is less reproducible than a script. The skills are committed
-  (fixed instructions = fixed behavior); also **record which model backed each run** — the
-  judge writes `model_generator` / `model_judge` into each result JSON for exactly this reason.
-- **Model drift.** Copilot's underlying model can change under you. The recorded model IDs are
-  your audit trail.
+Drafting writes **files**, not Jira issues. `publish-to-jira` is the only skill that writes, and
+it will not create anything until you explicitly approve the reviewed set. The separated
+one-file-per-ticket layout exists so the review is a real, line-by-line read (review it like a
+PR diff). Don't wire any other skill to write to Jira — keep the single gated path.
 
 ---
 
-## What this gets you
+## Honest caveats
 
-The repo is simultaneously the **proof-of-concept** and the **regression bar**. The same
-INVEST rubric drives both the V3 critic loop and the judge — one definition of "good," used
-to build *and* to measure. And you produced it without filing a single model-key request.
+- **The profile is the whole game.** A profile learned from a broad scan of real, closed stories
+  produces drafts that sound like your team; a thin profile produces generic tickets. Invest in
+  the first `learn-team` run, and read what it wrote.
+- **Reproducibility.** Chat is less reproducible than a script. The skills are committed (fixed
+  instructions = fixed behavior), and the profile is committed (fixed grounding) — together
+  that's most of the determinism you can get in Copilot.
+- **Model drift.** Copilot's underlying model can change under you. Nothing here pins it.
+- **Gate discipline.** The write-gate is procedural, not enforced by a runtime. The skills are
+  written to honor it, but *you* are the actual gate — review before you say "publish".
+
+---
 
 ## Layout
 
 ```
-story-weaver-eval/
-├── README.md                  ← you are here
+.
+├── README.md                       ← you are here
 ├── .github/
 │   ├── agents/
-│   │   └── ticket-eval.agent.md
+│   │   └── ticket-agent.agent.md    ← orchestrator: chains the skills, stops at the gate
 │   └── skills/
-│       ├── gen-v0-singleshot/SKILL.md
-│       ├── gen-v1-grounded/SKILL.md
-│       ├── gen-v2-decomposed/SKILL.md
-│       ├── gen-v3-critic/SKILL.md
-│       └── invest-judge/SKILL.md
-├── schema/ticket-schema.md    ← the Jira ticket shape every variant targets
-├── features/                  ← held-out raw requirements (test inputs)
-├── reference-tickets/         ← human-written tickets (ground truth)
-├── corpus/                    ← grounding exemplars (MUST be disjoint from reference-tickets)
-├── results/                   ← generated tickets + judge JSON land here
-└── scripts/aggregate.py       ← tallies results/*.json (no model calls)
+│       ├── learn-team/SKILL.md      ← deep self-learning → profile/team-profile.md
+│       ├── gather-context/SKILL.md  ← read the Jira feature + source code
+│       ├── draft-tickets/SKILL.md   ← feature → one md per ticket (review dir)
+│       └── publish-to-jira/SKILL.md ← the single gated write path
+├── profile/
+│   ├── team-profile.template.md     ← the shape learn-team fills in
+│   └── team-profile.md              ← the persisted learned conventions (created on first run)
+├── schema/ticket-schema.md          ← the ticket shape; INVEST quality bar
+├── tickets-review/                  ← drafted tickets land here, one dir per feature
+├── features/                        ← optional local feature briefs (offline / worked examples)
+├── samples/                         ← representative data payloads for the worked example
+└── corpus/                          ← optional offline exemplars (fallback grounding)
 ```
